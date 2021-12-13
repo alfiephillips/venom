@@ -1,0 +1,5 @@
+asyncio
+discord
+pymongo
+dotenv
+typing
