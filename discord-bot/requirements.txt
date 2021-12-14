@@ -3,3 +3,4 @@ discord
 pymongo
 dotenv
 typing
+selenium
