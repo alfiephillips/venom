@@ -3,6 +3,8 @@ import time
 import csv
 import dotenv
 import asyncio
+import requests
+import lxml
 
 from smtplib import SMTP
 
@@ -14,6 +16,8 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
+
+from bs4 import BeautifulSoup
 
 dotenv.load_dotenv()
 
@@ -79,13 +83,14 @@ def send_email(reciever_name: str, title="", message="", image_filename=False) -
                 server.quit()
                 return True
 
-class Venom():
-    def __init__(self, url, website="amazon", interval=60, scalp=True, alerts=True, workers=10):
+class Scalper():
+    def __init__(self, url, website="amazon", interval=60, alerts=True, workers=10):
         self.url = url.strip(" ")
+        self.website = website
         self.interval = interval
-        self.scalp = scalp
         self.alerts = alerts
         self.driver = webdriver.Chrome(pathname)
+        self.workers = workers
         self.executor = ThreadPoolExecutor(workers)
 
     def get_url(self):
@@ -94,14 +99,53 @@ class Venom():
     def add_task(self, func, loop):
         loop.run_in_executor(self.executor, func, self.url)
 
-loop = asyncio.get_event_loop()
-venom = Venom("https://www.amazon.com/")
+class Tracker(Scalper):
+    def __init__(self, url, website="amazon", interval=60, alerts=True, workers=10):
+        self.url = url
+        self.website = website
+        self.interval = interval
+        self.alerts = alerts
+        self.workers = workers
+        self.executor = ThreadPoolExecutor(self.workers)
+        self.headers = ({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+            "Accept-Language": "en-US, en;q=0.5"
+        })
 
-venom.add_task(venom.get_url(), loop=loop)
-venom.add_task(venom.get_url(), loop=loop)
-venom.add_task(venom.get_url(), loop=loop)
-venom.add_task(venom.get_url(), loop=loop)
-venom.add_task(venom.get_url(), loop=loop)
-venom.add_task(venom.get_url(), loop=loop)
+        self.product_title = ""
+        self.product_price = ""
+        self.product_rating = ""
+        self.product_availability = ""
+
+    def get_product(self):
+        webpage = requests.get(self.url, headers=self.headers)
+        soup = BeautifulSoup(webpage.content, "lxml")
+
+        try:
+
+            title = str(soup.find(
+                "span", attrs={"class": "a-size-large product-title-word-break"}
+            ).get_text())
+
+            price = float(soup.find(
+                "span", attrs={"class": 'a-offscreen'}
+                ).get_text())
+
+            price = price.strip("£")
+
+            ratings = int(soup.find(
+                "div", attrs={"class": "a-row a-spacing-medium averageStarRatingNumerical"}
+            ).find(
+                "span", attrs={"class": "a-size-base a-color-secondary"}
+            ).get_text().strip(" ").split("g")[0])
+
+        
+        except AttributeError:
+            price = "N/A"
+
+loop = asyncio.get_event_loop()
+
+tracker = Tracker("https://www.amazon.co.uk/dp/B00WWGF4JM/ref=cm_gf_aAN_d_p0_e0_qd0_FpLdDkwNHB0ilz4ceIIx")
+tracker.get_product()
 
 loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(loop=loop)))

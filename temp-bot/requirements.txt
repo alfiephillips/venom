@@ -1,0 +1,5 @@
+selenium
+email
+bs4
+lxml
+requests
