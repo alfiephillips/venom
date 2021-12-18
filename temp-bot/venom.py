@@ -47,6 +47,7 @@ def send_email(reciever_name: str, title="", message="", image_filename=False) -
         spamreader = csv.reader(file, delimiter=",")
         for row in spamreader:
             if row[0] == reciever_name:
+                print("Hello")
 
                 reciever_email = row[1]
                 
@@ -68,7 +69,7 @@ def send_email(reciever_name: str, title="", message="", image_filename=False) -
                 text = MIMEText(message)
                 template.attach(text)
 
-                if image:
+                if image_filename:
                     with open(image, "rb") as file:
                         image_data = f.read()
                         image = MIMEImage(image_data, name=os.path.basename(image_filename))
@@ -100,13 +101,14 @@ class Scalper():
         loop.run_in_executor(self.executor, func, self.url)
 
 class Tracker(Scalper):
-    def __init__(self, url, website="amazon", interval=60, alerts=True, workers=10):
+    def __init__(self, reciever_name, url, required_price, website="amazon", interval=60, alerts=True):
+        self.reciever_name = reciever_name
         self.url = url
+        self.required_price = required_price
         self.website = website
         self.interval = interval
         self.alerts = alerts
-        self.workers = workers
-        self.executor = ThreadPoolExecutor(self.workers)
+
         self.headers = ({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
             "Accept-Language": "en-US, en;q=0.5"
@@ -114,48 +116,48 @@ class Tracker(Scalper):
 
         self.product_title = ""
         self.product_price = ""
-        self.product_rating = ""
         self.product_availability = ""
+        self.sent_email = False
 
     def get_product(self):
+        if not self.sent_email:
+            if self.website.lower() == "amazon":
+                webpage = requests.get(self.url, headers=self.headers)
+                soup = BeautifulSoup(webpage.content, "lxml")
 
-        if self.website.lower() == "amazon":
-            webpage = requests.get(self.url, headers=self.headers)
-            soup = BeautifulSoup(webpage.content, "lxml")
+                try:
 
-            try:
+                    self.product_title = str(soup.find(
+                        "span", attrs={"class": "a-size-large product-title-word-break"}
+                    ).get_text().strip(" "))
 
-                self.product_title = str(soup.find(
-                    "span", attrs={"class": "a-size-large product-title-word-break"}
-                ).get_text())
+                    self.product_price = float(soup.find(
+                        "span", attrs={"class": 'a-offscreen'}
+                        ).get_text().strip("£"))
 
-                self.product_price = float(soup.find(
-                    "span", attrs={"class": 'a-offscreen'}
-                    ).get_text())
+                    self.product_availability = str(soup.find(
+                        "div", attrs={"id": "availability"}
+                    ).find(
+                        "span", attrs={"class": "a-size-medium a-color-success"}
+                    ).get_text().strip(" "))
 
-                self.product_price = price.strip("£")
+                
+                except AttributeError:
+                    price = "N/A"
 
-                self.product_rating = int(soup.find(
-                    "div", attrs={"class": "a-row a-spacing-medium averageStarRatingNumerical"}
-                ).find(
-                    "span", attrs={"class": "a-size-base a-color-secondary"}
-                ).get_text().strip(" ").split("g")[0])
+                if self.required_price >= self.product_price:
+                    self.sent_email = True
+                    title = "New product available to buy!"
+                    message = f"[{self.product_title}] is now available at £{self.product_price}. Its current status remains '{self.product_availability}'\n\nCheck this link to buy: {self.url}"
+                    send_email(self.reciever_name, title=title, message=message)
+                    print("Email has been sent!")
+                    return True
 
-                self.product_availability = str(soup.find(
-                    "div", attrs={"id": "availability"}
-                ).find(
-                    "span", attrs={"class": "a-size-medium a-color-success"}
-                ).get_text())
+                return False
 
-            
-            except AttributeError:
-                price = "N/A"
+# loop = asyncio.get_event_loop()
 
-            print(self.product_availability)
-
-loop = asyncio.get_event_loop()
-
-tracker = Tracker("https://www.amazon.co.uk/dp/B00WWGF4JM/ref=cm_gf_aAN_d_p0_e0_qd0_FpLdDkwNHB0ilz4ceIIx")
+tracker = Tracker("Alfie Phillips", "https://www.amazon.co.uk/dp/B00WWGF4JM/ref=cm_gf_aAN_d_p0_e0_qd0_FpLdDkwNHB0ilz4ceIIx", 55)
 tracker.get_product()
 
-loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(loop=loop)))
+# loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(loop=loop)))
