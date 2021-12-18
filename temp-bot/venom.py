@@ -47,8 +47,6 @@ def send_email(reciever_name: str, title="", message="", image_filename=False) -
         spamreader = csv.reader(file, delimiter=",")
         for row in spamreader:
             if row[0] == reciever_name:
-                print("Hello")
-
                 reciever_email = row[1]
                 
                 server.ehlo()
@@ -85,17 +83,29 @@ def send_email(reciever_name: str, title="", message="", image_filename=False) -
                 return True
 
 class Scalper():
-    def __init__(self, url, website="amazon", interval=60, alerts=True, workers=10):
+    def __init__(self, url="", website="amazon", search="", interval=60, alerts=True, workers=10):
         self.url = url.strip(" ")
         self.website = website
+        self.search = search
         self.interval = interval
         self.alerts = alerts
         self.driver = webdriver.Chrome(pathname)
         self.workers = workers
         self.executor = ThreadPoolExecutor(workers)
+        
+        self.products = []
 
-    def get_url(self):
-        self.driver.get(self.url)
+    def find_products(self):
+        if self.search != "":
+            search_terms = self.search.split(" ")
+            address = f"https://www.amazon.co.uk/s?k="
+            for term in search_terms:
+                if term == search_terms[-1]:
+                    address += term
+                else:
+                    address += (term + "+")
+
+            print(address)
 
     def add_task(self, func, loop):
         loop.run_in_executor(self.executor, func, self.url)
@@ -147,17 +157,19 @@ class Tracker(Scalper):
 
                 if self.required_price >= self.product_price:
                     self.sent_email = True
+
                     title = "New product available to buy!"
                     message = f"[{self.product_title}] is now available at £{self.product_price}. Its current status remains '{self.product_availability}'\n\nCheck this link to buy: {self.url}"
+                    
                     send_email(self.reciever_name, title=title, message=message)
-                    print("Email has been sent!")
+                    
                     return True
-
+                    
                 return False
 
-# loop = asyncio.get_event_loop()
+loop = asyncio.get_event_loop()
 
-tracker = Tracker("Alfie Phillips", "https://www.amazon.co.uk/dp/B00WWGF4JM/ref=cm_gf_aAN_d_p0_e0_qd0_FpLdDkwNHB0ilz4ceIIx", 55)
-tracker.get_product()
+scalper = Scalper(search="New computer desks")
+scalper.add_task(scalper.find_products(), loop=loop)
 
-# loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(loop=loop)))
+loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(loop=loop)))
