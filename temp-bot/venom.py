@@ -4,12 +4,16 @@ import csv
 import dotenv
 import asyncio
 import requests
-import lxml
+
+from lxml import html
 
 from smtplib import SMTP
 
 from selenium import webdriver
 from selenium.webdriver.common import keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait 
+from selenium.webdriver.support import expected_conditions as EC 
 
 from concurrent.futures.thread import ThreadPoolExecutor
 
@@ -98,14 +102,23 @@ class Scalper():
     def find_products(self):
         if self.search != "":
             search_terms = self.search.split(" ")
-            address = f"https://www.amazon.co.uk/s?k="
+            address = f"https://www.amazon.com/s?k="
             for term in search_terms:
                 if term == search_terms[-1]:
                     address += term
                 else:
                     address += (term + "+")
 
-            print(address)
+            self.driver.get(address)
+            self.driver.implicitly_wait(1)
+
+            items = WebDriverWait(self.driver,10).until(EC.presence_of_all_elements_located((By.XPATH, '//div[contains(@class, "s-result-item s-asin")]')))
+            for item in items:
+                whole_price = item.find_elements_by_xpath('.//span[@class="a-price-whole"]')
+                fraction_price = item.find_elements_by_xpath('.//span[@class="a-price-fraction"]')
+                if whole_price != [] and fraction_price != []:
+                    self.products.append(item)
+
 
     def add_task(self, func, loop):
         loop.run_in_executor(self.executor, func, self.url)
@@ -167,9 +180,10 @@ class Tracker(Scalper):
                     
                 return False
 
-loop = asyncio.get_event_loop()
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
 
-scalper = Scalper(search="New computer desks")
-scalper.add_task(scalper.find_products(), loop=loop)
+    scalper = Scalper(search="New computer desks")
+    scalper.add_task(scalper.find_products(), loop=loop)
 
-loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(loop=loop)))
+    loop.run_until_complete(asyncio.gather(*asyncio.all_tasks(loop=loop)))
