@@ -119,6 +119,12 @@ class Scalper():
                 if whole_price != [] and fraction_price != []:
                     self.products.append(item)
 
+    def get_suggested_products(self):
+        return self.products
+
+    def buy_product(self):
+        pass
+
 
     def add_task(self, func, loop):
         loop.run_in_executor(self.executor, func, self.url)
