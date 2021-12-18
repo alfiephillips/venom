@@ -118,30 +118,40 @@ class Tracker(Scalper):
         self.product_availability = ""
 
     def get_product(self):
-        webpage = requests.get(self.url, headers=self.headers)
-        soup = BeautifulSoup(webpage.content, "lxml")
 
-        try:
+        if self.website.lower() == "amazon":
+            webpage = requests.get(self.url, headers=self.headers)
+            soup = BeautifulSoup(webpage.content, "lxml")
 
-            title = str(soup.find(
-                "span", attrs={"class": "a-size-large product-title-word-break"}
-            ).get_text())
+            try:
 
-            price = float(soup.find(
-                "span", attrs={"class": 'a-offscreen'}
+                self.product_title = str(soup.find(
+                    "span", attrs={"class": "a-size-large product-title-word-break"}
                 ).get_text())
 
-            price = price.strip("£")
+                self.product_price = float(soup.find(
+                    "span", attrs={"class": 'a-offscreen'}
+                    ).get_text())
 
-            ratings = int(soup.find(
-                "div", attrs={"class": "a-row a-spacing-medium averageStarRatingNumerical"}
-            ).find(
-                "span", attrs={"class": "a-size-base a-color-secondary"}
-            ).get_text().strip(" ").split("g")[0])
+                self.product_price = price.strip("£")
 
-        
-        except AttributeError:
-            price = "N/A"
+                self.product_rating = int(soup.find(
+                    "div", attrs={"class": "a-row a-spacing-medium averageStarRatingNumerical"}
+                ).find(
+                    "span", attrs={"class": "a-size-base a-color-secondary"}
+                ).get_text().strip(" ").split("g")[0])
+
+                self.product_availability = str(soup.find(
+                    "div", attrs={"id": "availability"}
+                ).find(
+                    "span", attrs={"class": "a-size-medium a-color-success"}
+                ).get_text())
+
+            
+            except AttributeError:
+                price = "N/A"
+
+            print(self.product_availability)
 
 loop = asyncio.get_event_loop()
 
